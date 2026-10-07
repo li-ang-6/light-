@@ -1,0 +1,13 @@
+grandchild	grandparent
+Jone	Alice
+Jone	Frank
+Jone	Jesse
+Jone	Mary
+Mark	Alice
+Mark	Jesse
+Philip	Alice
+Philip	Jesse
+Steven	Alice
+Steven	Frank
+Steven	Jesse
+Steven	Mary

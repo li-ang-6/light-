@@ -1,0 +1,2 @@
+Hello Hadoop!
+This is the original file.

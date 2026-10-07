@@ -1,0 +1,15 @@
+child          parent
+Steven        Lucy
+Steven        Jack
+Jone         Lucy
+Jone         Jack
+Lucy         Mary
+Lucy         Frank
+Jack         Alice
+Jack         Jesse
+David       Alice
+David       Jesse
+Philip       David
+Philip       Alma
+Mark       David
+Mark       Alma
