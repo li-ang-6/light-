@@ -1,0 +1,22 @@
+Python tutorial source documents
+
+The ten files downloaded into documents/ are English reStructuredText (RST)
+source documents from the official Python 3.14 tutorial. The original RST
+markup and code examples are retained. Consequently, the experiment's
+English-word tokenization also includes words occurring in markup and code;
+these files have not been converted to plain prose articles.
+
+The Python Software Foundation and other original contributors retain the
+copyright in the Python documentation. Downloading it for this experiment
+does not transfer copyright to the repository author.
+
+Official documentation license and full copyright notices:
+https://docs.python.org/3.14/license.html
+
+Official tutorial:
+https://docs.python.org/3.14/tutorial/index.html
+
+The download manifest, sources.tsv, records each source URL, retrieval time
+in UTC, and SHA-256 checksum. Retain the applicable original copyright and
+license notices when redistributing these documents. This attribution file
+is not a replacement for the original license terms.
