@@ -1,0 +1,131 @@
+# HBase Shell / JRuby script, run with: hbase shell -n data/hbase-shell.txt
+# Only the five tables named below are replaced. Existing unrelated tables are preserved.
+# Original Student rows (including the handout's duplicate student ID):
+# 2015001 Zhangsan male 23
+# 2015003 Mary female 22
+# 2015003 Lisi male 24
+# The SC table refers to 2015002. For this demonstration, explicitly assume Mary=2015002.
+puts 'SOURCE DATA NOTE: original Mary and Lisi both have 2015003; demo assumes Mary=2015002 to match SC.'
+
+%w[lab3_shell_Student_original lab3_shell_Student lab3_shell_Course lab3_shell_SC lab3_shell_demo].each do |name|
+  if exists(name)
+    disable name if is_enabled(name)
+    drop name
+  end
+end
+
+create 'lab3_shell_Student_original', 'info'
+[['2015001', 'Zhangsan', 'male', '23'], ['2015003', 'Mary', 'female', '22'], ['2015003', 'Lisi', 'male', '24']].each do |id, name, sex, age|
+  put 'lab3_shell_Student_original', name, 'info:S_No', id
+  put 'lab3_shell_Student_original', name, 'info:S_Name', name
+  put 'lab3_shell_Student_original', name, 'info:S_Sex', sex
+  put 'lab3_shell_Student_original', name, 'info:S_Age', age
+end
+scan 'lab3_shell_Student_original'
+raise 'Original Student records missing' unless count('lab3_shell_Student_original') == 3
+create 'lab3_shell_Student', 'info', 'Score'
+create 'lab3_shell_Course', 'info'
+create 'lab3_shell_SC', 'info'
+
+students = [
+  ['2015001', 'Zhangsan', 'male', '23'],
+  ['2015002', 'Mary', 'female', '22'],
+  ['2015003', 'Lisi', 'male', '24']
+]
+students.each do |id, name, sex, age|
+  put 'lab3_shell_Student', name, 'info:S_No', id
+  put 'lab3_shell_Student', name, 'info:S_Name', name
+  put 'lab3_shell_Student', name, 'info:S_Sex', sex
+  put 'lab3_shell_Student', name, 'info:S_Age', age
+end
+
+courses = [
+  ['123001', 'Math', '2.0'],
+  ['123002', 'Computer Science', '5.0'],
+  ['123003', 'English', '3.0']
+]
+courses.each do |id, name, credit|
+  put 'lab3_shell_Course', id, 'info:C_No', id
+  put 'lab3_shell_Course', id, 'info:C_Name', name
+  put 'lab3_shell_Course', id, 'info:C_Credit', credit
+end
+
+enrollments = [
+  ['2015001', '123001', '86'], ['2015001', '123003', '69'],
+  ['2015002', '123002', '77'], ['2015002', '123003', '99'],
+  ['2015003', '123001', '98'], ['2015003', '123002', '95']
+]
+names = Hash[students.map { |s| [s[0], s[1]] }]
+course_names = Hash[courses.map { |c| [c[0], c[1]] }]
+enrollments.each do |student_id, course_id, score|
+  row = student_id + '_' + course_id
+  put 'lab3_shell_SC', row, 'info:SC_Sno', student_id
+  put 'lab3_shell_SC', row, 'info:SC_Cno', course_id
+  put 'lab3_shell_SC', row, 'info:SC_Score', score
+  put 'lab3_shell_Student', names[student_id], 'Score:' + course_names[course_id], score
+end
+
+puts '=== List all user tables ==='
+list
+puts '=== Display all three populated tables ==='
+scan 'lab3_shell_Student'
+scan 'lab3_shell_Course'
+scan 'lab3_shell_SC'
+raise 'Student row count incorrect' unless count('lab3_shell_Student') == 3
+raise 'Course row count incorrect' unless count('lab3_shell_Course') == 3
+raise 'SC row count incorrect' unless count('lab3_shell_SC') == 6
+
+puts '=== Scan a column family and a particular column ==='
+scan 'lab3_shell_Student', {COLUMNS => 'Score'}
+scan 'lab3_shell_Student', {COLUMNS => 'Score:Math'}
+# Ordinary shell scan omits rows with missing cells; get shows that Mary's Math cell is absent.
+get 'lab3_shell_Student', 'Mary', 'Score:Math'
+puts 'Missing-cell interpretation: Mary Score:Math = null (shown explicitly by Java scanColumn).'
+
+# The remaining schema/deletion operations use an isolated demonstration table.
+create 'lab3_shell_demo', 'info'
+put 'lab3_shell_demo', 'old', 'info:value', 'old'
+disable 'lab3_shell_demo'
+drop 'lab3_shell_demo'
+create 'lab3_shell_demo', 'info'
+raise 'createTable replacement failed' unless count('lab3_shell_demo') == 0
+
+put 'lab3_shell_demo', 'row1', 'info:age', '23'
+put 'lab3_shell_demo', 'row1', 'info:temp', 'remove-me'
+put 'lab3_shell_demo', 'row2', 'info:age', '22'
+disable 'lab3_shell_demo'
+alter 'lab3_shell_demo', {NAME => 'Extra'}
+enable 'lab3_shell_demo'
+put 'lab3_shell_demo', 'row1', 'Extra:note', 'added'
+describe 'lab3_shell_demo'
+get 'lab3_shell_demo', 'row1', 'Extra:note'
+
+deleteall 'lab3_shell_demo', 'row1', 'info:temp'
+java_import 'org.apache.hadoop.hbase.HBaseConfiguration'
+java_import 'org.apache.hadoop.hbase.TableName'
+java_import 'org.apache.hadoop.hbase.client.ConnectionFactory'
+java_import 'org.apache.hadoop.hbase.client.Get'
+column_connection = ConnectionFactory.createConnection(HBaseConfiguration.create)
+column_table = column_connection.getTable(TableName.valueOf('lab3_shell_demo'))
+begin
+  column_result = column_table.get(Get.new('row1'.to_java_bytes))
+  raise 'column deletion failed' unless column_result.getValue('info'.to_java_bytes, 'temp'.to_java_bytes).nil?
+ensure
+  column_table.close
+  column_connection.close
+end
+disable 'lab3_shell_demo'
+alter 'lab3_shell_demo', {NAME => 'Extra', METHOD => 'delete'}
+enable 'lab3_shell_demo'
+describe 'lab3_shell_demo'
+
+put 'lab3_shell_demo', 'row1', 'info:age', '24'
+get 'lab3_shell_demo', 'row1', 'info:age'
+deleteall 'lab3_shell_demo', 'row2'
+raise 'row deletion failed' unless count('lab3_shell_demo') == 1
+scan 'lab3_shell_demo'
+truncate 'lab3_shell_demo'
+raise 'truncate failed' unless count('lab3_shell_demo') == 0
+describe 'lab3_shell_demo'
+puts 'HBASE SHELL ALL PASS'
+exit
